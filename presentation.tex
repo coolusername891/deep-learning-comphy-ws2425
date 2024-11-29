@@ -1,0 +1,785 @@
+\documentclass[handout]{beamer}
+\usepackage{mathtools}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{relsize}
+\usepackage{graphicx}
+\usepackage{dirtytalk}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage[export]{adjustbox}
+\usepackage{hyperref}
+\usepackage{pgfpages}
+\usepackage{changepage}
+\usepackage[
+    defernumbers=true,
+    backend=biber
+    ]{biblatex}
+    
+\addbibresource{info.bib}
+\addbibresource{img.bib}
+
+\setlength{\parindent}{0pt}
+
+\def\noval{}
+
+\DeclarePairedDelimiter{\br}{(}{)}
+\DeclarePairedDelimiter{\brr}{[}{]}
+\DeclarePairedDelimiter{\brs}{\{}{\}}
+\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\makeatletter
+\let\oldbr\br
+\def\br{\@ifstar{\oldbr}{\oldbr*}}
+\makeatother
+
+\makeatletter
+\let\oldbrr\brr
+\def\brr{\@ifstar{\oldbrr}{\oldbrr*}}
+\makeatother
+
+\makeatletter
+\let\oldbrs\brs
+\def\brs{\@ifstar{\oldbrs}{\oldbrs*}}
+\makeatother
+
+\makeatletter
+\let\oldabs\abs
+\def\abs{\@ifstar{\oldabs}{\oldabs*}}
+\makeatother
+
+\makeatletter
+\let\oldnorm\norm
+\def\norm{\@ifstar{\oldnorm}{\oldnorm*}}
+\makeatother
+
+\makeatletter
+\let\oldlog\log
+\def\log{\@ifstar\@log\@@log}
+\def\@log#1{\oldlog\br{#1}}
+\def\@@log#1{\oldlog#1}
+\makeatother
+
+\makeatletter
+\newcommand{\set}[2]{
+    \def\@delim{\;\@ifstar{\middle|}{:}\;}
+    \ifx\noval#2\noval%
+        \left\{#1\right\}
+    \else
+        \left\{#1\@delim#2\right\}
+    \fi
+}
+\makeatother
+
+\newcommand{\E}[2][]{%
+    \ifx\noval#1\noval%
+        \mathbb{E}\brr{#2}
+    \else
+        \mathbb{E}_{#1}\brr{#2}
+    \fi
+}
+
+
+
+\newcommand{\arrow}{$\rightarrow\;$}
+\newcommand{\smallmin}{\scalebox{0.8}{-}}
+\newcommand{\relu}{\text{ReLU}}
+
+\newcommand{\R}{\mathbb{R}}
+
+\renewcommand{\c}[2]{\left(#1\;\middle|\;#2\right)}
+
+\newcommand{\ml}[1]{\mathlarger{#1}\,}
+\newcommand{\dkl}[2]{D_{\text{KL}}(#1\;\Vert\;#2)}
+
+\newcommand{\func}[3]{#1:#2\rightarrow#3}
+\newcommand{\p}[1]{p_\text{#1}}
+\renewcommand{\k}[2]{#1^{(#2)}}
+\newcommand{\PLH}{{\mkern-2mu\times\mkern-2mu}}
+
+\title{Deep learning with neural networks and programming neural networks in Python}
+\date{26.11.2024}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}
+    \frametitle{A broad Definition of Machine Learning}
+    
+        \say{A computer program is said to learn from experience E 
+        with respect to some class of tasks T [...], 
+        if its performance at tasks in T [...] improves with
+        experience.} \cite{mitchell97}
+    
+\end{frame}
+
+\begin{frame}
+    \frametitle{Types of tasks T}
+    Generally, task is to learn some highly complex function
+    \begin{flalign*}
+        \func{f}{\R^n}{\R^m}, f(x) = y
+    \end{flalign*}
+    \onslide<2->{Common tasks:\\}
+    \vspace{1em}
+    \begin{minipage}{0.4\textwidth}
+        \begin{itemize}
+            \onslide<2->{\item Classification}
+            \onslide<3->{\item Regression}
+        \end{itemize}
+    \end{minipage}    
+    \begin{minipage}{0.55\textwidth}
+        \begin{itemize}
+            \onslide<4->{\item Structured prediction}
+            \onslide<5->{\item Probability density estimation}
+        \end{itemize}
+    \end{minipage}    
+    \vspace{1em}
+    
+    \hspace{-1em}
+    \begin{minipage}[t]{0.39\textwidth}
+        \begin{figure}
+            \onslide<4->{\includegraphics[height=2.4cm]{img/structured prediction.pdf}}
+            \onslide<6->{\caption{Sequence tagging as an example of structured prediction \cite{structured_prediction}}}
+        \end{figure}
+    \end{minipage}
+    \hspace{0.5em}
+    \begin{minipage}[t]{0.59\textwidth}
+        \begin{figure}
+            \onslide<5->{\includegraphics[height=2.4cm]{img/density_estimation.png}}
+            \onslide<6->{\caption{Density estimate based on samples (red) drawn from a mixed Gaussian (blue) \cite{density_estimation}}}
+        \end{figure}
+    \end{minipage}
+    \hspace{-2em}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Types of experience E}
+    Learning usually through observing dataset of examples 
+    \begin{itemize}
+        \onslide<2->{\item Unsupervised learning: learn useful properties of dataset}
+        \onslide<3->{\item Supervised learning: given examples $(x_i, y_i)$, learn $p\c{y}{x}$}
+        \onslide<4->{\item Reinforcement learning: learn from interaction with environment}
+    \end{itemize}
+    
+    \begin{figure}
+        \hspace{-2em}
+        \onslide<2->{$\vcenter{\hbox{\includegraphics[width=0.35\textwidth]{img/unsupervised_learning.png}}}$}
+        \onslide<3->{$\vcenter{\hbox{\includegraphics[width=0.24\textwidth]{img/supervised_learning.png}}}$}
+        \onslide<4->{$\vcenter{\hbox{\includegraphics[width=0.4\textwidth]{img/reinforcement_learning.jpg}}}$}
+        \hspace{-2em}
+        \onslide<5->{\caption{Examples for unsupervised, supervised and reinforcement learning \cite{unsupervised}, \cite{supervised} \cite{reinforcement}}}
+    \end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Different Types of Error}
+    
+    \begin{itemize}
+        \onslide<2->{\item Training error: error on set of training examples}
+        \onslide<3->{\item Generalization error: real-world error on new data}
+        \onslide<4->{\item Capacity: ability of model to fit function to be learned}
+    \end{itemize}
+    
+    \hspace{-4em}
+    \begin{figure}
+        \hspace{-4em}
+        \onslide<5->{$\vcenter{\hbox{\includegraphics[height=0.3\textwidth]{img/deep learning/test_generalization_error.pdf}}}$}
+        \onslide<6->{$\vcenter{\hbox{\includegraphics[height=0.3\textwidth]{img/deep learning/underfitting.pdf}}}$}
+        \onslide<7->{$\vcenter{\hbox{\includegraphics[height=0.3\textwidth]{img/deep learning/overfitting.pdf}}}$}
+        \hspace{-4em}
+    \end{figure}
+    \vspace{-2em}
+    \begin{figure}
+        \onslide<9->{\caption{(Left:) Typical relationship between capacity and errors. (Right:) Underfitting and overfitting for polynomials of different capacity \cite{textbook}}}
+    \end{figure}
+    \vspace{-2em}
+    \onslide<8->{\arrow Goal: low training \textbf{and} generalization error}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Deep Learning and Neural Networks}
+    \onslide<2->{Terminology:}
+    \begin{itemize}
+        \onslide<3->{\item \textbf{Network}: learned function $f(x)$ can be described by network of nodes}
+        \onslide<4->{\item \textbf{Neural}: graph nodes play role analogous to biological neuron}
+        \onslide<5->{\item \textbf{Deep} Learning: \say{depth} of networks}
+    \end{itemize}
+
+    \begin{figure}
+        \includegraphics[width=0.4\textwidth]{img/dropout/neural_network_visualization.pdf}
+        \caption{Simple Deep Neural Network \cite{dropout}\textsuperscript{*}}
+    \end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Deep Feedforward Networks (MLPs)}
+    Typically have layer structure:
+    \begin{figure}
+        \includegraphics[width=0.8\textwidth]{img/dropout/neural_network_visualization_annotated.pdf}
+        \caption{Layer Structure of Deep Feedforward Networks \cite{dropout}\textsuperscript{*}}
+    \end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{How does Deep Learning Work?}
+    \begin{figure}
+        \begin{minipage}[c]{0.67\textwidth}
+          \includegraphics[width=\textwidth]{img/deep learning/deep_learning_representation.pdf}
+        \end{minipage}\hfill
+        \begin{minipage}[c]{0.3\textwidth}
+          \caption{
+            Deep Networks solve difficult tasks by building complex concepts out of simpler concepts \cite{textbook}
+          } \label{fig:03-03}
+        \end{minipage}
+      \end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Deep Learning as Extension of Linear Models}
+    Hidden layers: kernel $\phi(x; \theta)$, output layer: regression
+    \begin{equation*}
+        f(x) = \k{f}{N}(\ldots \k{f}{1}(x)) = \k{W}{N}\phi(x; \theta) + \k{b}{N}
+    \end{equation*}
+    
+    \begin{minipage}[b]{0.49\textwidth}
+        \begin{figure}
+            \onslide<2->{\includegraphics[width=0.8\textwidth]{img/dropout/network_kernel.pdf}}
+            \onslide<5->{\caption{Deep Network as linear layer with kernel \cite{dropout}\textsuperscript{*}}}
+        \end{figure}
+    \end{minipage}
+    \begin{minipage}[b]{0.49\textwidth}
+        \begin{figure}
+            \onslide<3->{\includegraphics[width=\textwidth]{img/kernel trick.pdf}}
+            \onslide<5->{\caption{mapping with $\phi$ makes input linearly separable \cite{kernel}\textsuperscript{*}}}
+        \end{figure}
+    \end{minipage}
+    
+    \onslide<4->{\arrow Deep Learning: learn kernel and regression parameters}
+    %kernel: extracts features from x or new representation for x
+\end{frame}
+
+\begin{frame}
+    \frametitle{Universal Approximation Theorems (UAT)}
+    \begin{itemize}
+        \onslide<2->{\item Prove that it is possible to approximate functions arbitrarily well with neural networks}
+        \onslide<3->{\item Requirement: non-linearity e.g. $\relu(z) = \max(0, z)$}
+        \onslide<5->{\item Shallow network with activation is universal approximator, can however require exponential number of hidden units} %exponential in input dimension
+    \end{itemize}
+
+    \begin{minipage}[t]{0.49\textwidth}    
+        \begin{figure}
+            \onslide<4->{\includegraphics[height=0.5\linewidth]{img/relu_plot.pdf}}
+            \onslide<7->{\caption{Plot of ReLU$(x)$}}
+        \end{figure}
+    \end{minipage}
+    \begin{minipage}[t]{0.49\textwidth}    
+        \begin{figure}
+            \onslide<6->{\includegraphics[height=0.5\linewidth]{img/relu_approximation.pdf}}
+            \onslide<7->{\caption{Approximation of $y(x) = x^3+x^2-x-1$ using 6 ReLU nodes}}
+        \end{figure}
+    \end{minipage}
+    
+\end{frame}
+
+\begin{frame}
+    \frametitle{Shallow Network with ReLU as Universal Approximator}
+    
+    \begin{minipage}[t]{0.4\textwidth}
+        \vspace{-0.5cm}
+        \onslide<2->{\begin{flalign*}
+            y(x) = & -\relu(-5(x+1.5)) &&\\
+            & -\relu(-(x+1)) &&\\
+            & -\relu(x+1) &&\\
+            &+ \relu(x-0.2) &&\\
+            &+ \relu(3(x-0.6)) &&\\
+            &+ \relu(3(x-1))&&
+        \end{flalign*}}%
+        \vspace{-1.2em}
+        \onslide<3->{\begin{flalign*}          
+            \k{a}{1} &= \text{ReLU}\br{
+            \begin{bsmallmatrix*}
+                \smallmin 5 \ \\
+                \smallmin 1 \\
+                 1 \\
+                 1 \\
+                 3 \\
+                 3 
+            \end{bsmallmatrix*} \, x + 
+            \begin{bsmallmatrix*}
+                \smallmin 7.5 \ \\
+                \smallmin 1 \\
+                1 \\
+                \smallmin 0.2 \\
+                \smallmin 1.8 \\
+                -3 
+            \end{bsmallmatrix*}} &&\\
+            &&&\\
+            y(x) &= \begin{bsmallmatrix*}
+                \smallmin 1,& \smallmin 1,& \smallmin 1,& 1,& 1,& 1
+            \end{bsmallmatrix*} \, \k{a}{1} &&
+        \end{flalign*}}
+
+        \onslide<2->{\href{https://www.desmos.com/calculator/x7aq0sbt81}{\textcolor{blue}{Desmos}, }}
+        \onslide<5->{\href{https://www.youtube.com/watch?v=Ln8pV1AXAgQ}{\textcolor{blue}{YouTube}}}
+
+    \end{minipage}
+    \begin{minipage}[t]{0.4\textwidth}
+        \begin{figure}
+            \includegraphics[width=\textwidth]{img/relu_approximation.pdf}
+            \onslide<4->{\includegraphics[width=0.9\textwidth]{img/relu_approximation_network.pdf}}
+            \onslide<6->{\caption{Shallow network and its ouptut}}
+        \end{figure}
+    \end{minipage}
+\end{frame}
+
+\begin{frame}
+    \frametitle{UAT - Intuition for Advantage of Deeper Networks}
+    \begin{itemize}
+        \onslide<2->{\item Stacked hidden layers with activation $g(z) = \abs{z}$ \say{fold} space many times along hyperplanes defined by the $\k{W}{k}, \k{b}{k}$}
+        \onslide<3->{\item Function on folded space creates complex repeating pattern on input space}
+    \end{itemize}
+    \begin{figure}
+        \onslide<2->{\includegraphics[width=0.9\textwidth]{img/deep learning/activation_folding.pdf}}
+        \onslide<5->{\caption{Two hidden layers with $\abs{z}$-activation fold input space twice \cite{textbook}}}
+    \end{figure}
+    \onslide<4->{\arrow Important: UAT guarantees ability to approximate, not learn!}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Maximum Likelihood Estimator} 
+    \begin{itemize}
+        \onslide<2->{\item Empirical distribution:    
+        \begin{equation*}
+            p(X = x) = \frac{1}{m} \sum_{i=1}^{m} \delta(x - x_i)
+        \end{equation*}}
+        \onslide<3->{\item Kullback-Leibler divergence:
+        \begin{equation*}
+            \dkl{p}{q} := \E[X \sim p]{\log{\frac{p(X=x)}{q(X=x)}}} \geq 0
+        \end{equation*}}
+        \onslide<4->{\arrow Measure of how different distributions $p$ and $q$ are}
+    \end{itemize}
+    \begin{figure}
+        \begin{minipage}[b]{0.35\textwidth}
+          \onslide<5->{\includegraphics[width=\linewidth]{img/deep learning/kl_divergence.pdf}}
+        \end{minipage}\hfill
+        \begin{minipage}[b]{0.6\textwidth}
+          \onslide<6->{\caption{
+            Result of minimizing the KL-divergence between a mixed and single Gaussian \cite{textbook}
+          }}
+        \end{minipage}
+      \end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Maximum Likelihood Estimator}
+    
+    Prerequisites:
+    \begin{itemize}
+        \onslide<2->{\item i.i.d. assumption \arrow view individual examples $x_i \in \mathbb{X}=\set{x_1, \ldots, x_m}{}$ as being drawn from $\p{data}(x)$}
+        \onslide<3->{\item $\p{model}(x; \theta)$: family of probability distributions, indexed by $\theta$}
+        \onslide<4->{\item $\hat{p}_{\text{data},m}$: empirical distribution defined by $\mathbb{X}$}
+    \end{itemize}
+
+    \vspace{0.5cm}
+    \onslide<5->{Maximum Likelihood Estimator for $\theta$:}
+    \begin{align*}
+        \onslide<5->{\k{\theta}{ML}_m 
+        :=& \argmax_\theta \prod_{i=1}^{m} \p{model}(x_i; \theta) \\}
+        \onslide<6->{=& \argmin_\theta \frac{1}{m} \sum_{i=1}^{m}-\log{\p{model}(x; \theta)} \\}
+        \onslide<7->{=& \argmin_\theta \dkl{\hat{p}_{\text{data}, m}}{\p{model}}}
+    \end{align*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Maximum Likelihood Estimator}
+    \begin{minipage}{0.8\textwidth}
+        Properties:
+        \begin{itemize}
+            \onslide<2->{\item $\k{\theta}{ML}_m$ minimizes dissimilarity between observed distribution $\hat{p}_{\text{data},m}$ and model distribution $\p{model}$}
+            \onslide<4->{\item Fastest convergence to true parameter $\theta^\ast$}
+        \end{itemize}
+    \end{minipage}
+    \begin{minipage}{0.15\textwidth}
+        \begin{figure}
+            \onslide<3->{\includegraphics[width=1.5\linewidth]{img/deep learning/kl_divergence.pdf}}
+            \vspace{-2em}
+            \onslide<9->{\captionsetup{margin={3em,-5em}}
+            \caption{\cite{textbook}}}
+        \end{figure}
+    \end{minipage}
+    
+    \onslide<5->{Generalization to conditional probabilities $p\c{y}{x}$:
+    \vspace{-0.8em}
+    \begin{flalign*}
+        \theta^{(ML)}_{m} := \argmin_\theta \frac{1}{m} \sum_{i=1}^{m} - \log{\p{model}\c{y_i}{x_i; \theta}}
+    \end{flalign*}}
+    
+    
+    \onslide<6->{Connection between MLE and UAT:}
+    \begin{itemize}
+        \onslide<7->{\item MLE: framework for fitting $\p{model}$ to $\p{data}$ via $\theta$}
+        \onslide<8->{\item UAT: guarantees that model can approximate $\p{data}$}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Cost Functions and Gradient Descent}
+    
+    Cost functions:
+    \begin{itemize}
+        \onslide<2->{\item Often sum over per-example loss: $J(\theta) = \frac{1}{m} \sum_{i=1}^
+        {m}L(x_i, y_i; \theta)$}
+        \onslide<3->{\vspace{0.2cm}
+        \item MLE: $L(x, y, \theta) = -\log{\p{model}\c{y}{x; \theta}}$}
+    \end{itemize}
+    
+    \onslide<4->{\vspace{0.4cm}
+    
+    Gradient descent:}
+    \begin{itemize}
+        \onslide<5->{\item Iteratively minimize $J$: $\ \theta_{k+1} = \theta_k - \epsilon \nabla_\theta J(\theta_k)$}
+        \onslide<7->{\item Problem: computational cost of one step $\propto m$}
+    \end{itemize}
+
+    \begin{figure}
+        \onslide<6->{\includegraphics[width=0.6\textwidth]{img/gradient_descent.png}}
+        \onslide<8->{\caption{Visualization of gradient descent \cite{arnold}}}
+    \end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Stochastic Gradient Descent and Momentum}
+    Stochastic Gradient Descent (SGD):
+    \vspace{-0.2cm}
+    \onslide<2->{\begin{equation*}
+        \nabla_\theta J(\theta) \approx g = \frac{1}{m^\prime} \sum_{i=1}^{m^\prime} \nabla_\theta L(x_i, y_i; \theta), \quad m^\prime \ll m
+    \end{equation*}\\}
+    \onslide<3->{\vspace{-0.2cm}
+    \arrow Use randomly drawn minibatch of examples to estimate $\nabla_\theta J$}
+
+    \begin{minipage}[b]{0.51\textwidth}
+        \vspace{0.4cm}
+        \onslide<5->{Momentum:}
+        \onslide<6->{\vspace{-0.3cm}
+        \begin{flalign*}
+            & v_{k+1} = \alpha v_k - \epsilon \nabla_\theta J(\theta_{k}) &&\\
+            & \theta_{k+1} = \theta_k + v_{k+1} &&\\
+            & \alpha \in [0,1)&&
+        \end{flalign*}}
+        \vspace{-0.7cm}
+        \begin{itemize}
+            \onslide<7->{\item Weighted average stabilizes gradient}
+            \onslide<8->{\item Analogy: particle with friction, velocity $v$}
+        \end{itemize}
+    \end{minipage}
+    \begin{minipage}[b]{0.47\textwidth}
+        \begin{figure}
+            \onslide<4->{\includegraphics[width=0.7\linewidth]{img/deep learning/momentum.pdf}}
+            \vspace{-0.2cm}
+            \hspace{3.4em}
+            \onslide<9->{\caption{Comparison of GD\\ \textbf{\textcolor{red}{with}} and \textbf{without} momentum \cite{textbook}}}
+            \vspace{-0.7cm}
+        \end{figure}
+    \end{minipage}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Backpropagation - General Formulation}
+    \onslide<2->{Algorithm for computing $\frac{\partial F}{\partial X}, \ X \in \set{A, \ldots, F}{}$:}
+        \begin{itemize}
+            \onslide<3->{\item Start at node $F$, $\frac{\partial F}{\partial F} = 1$}
+            \onslide<4->{\item Propagate backwards along graph, \textbf{re-using partial derivatives} of previous nodes, e.g.: $\frac{\partial F}{\partial C} = \frac{\partial F}{\partial E}\frac{\partial E}{\partial C}$}
+        \end{itemize}
+    
+    \begin{figure}%
+        \centering%
+        % \only<2-4>{\includegraphics[width=5cm]{img/backprop/backprop_1.pdf}}%
+        % \only<5>{\includegraphics[width=5cm]{img/backprop/backprop_2.pdf}}%
+        % \only<6>{\includegraphics[width=5cm]{img/backprop/backprop_3.pdf}}%
+        % \only<7>{\includegraphics[width=5cm]{img/backprop/backprop_4.pdf}}%
+        % \only<8>{\includegraphics[width=5cm]{img/backprop/backprop_5.pdf}}%
+        \only<9->{\includegraphics[width=5cm]{img/backprop/backprop_6.pdf}}%
+        \onslide<11->{\caption{Example of Backpropagation through a graph \cite{dag}\textsuperscript{*}}}
+    \end{figure}
+    \onslide<10->{\arrow Deep/complex graphs: dramatic speedup compared to recomputing all intermediate $\frac{\partial F}{\partial X}$ for each node}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Backpropagation for MLPs}
+    
+    \begin{minipage}{0.4\textwidth}
+        \onslide<2->{Feedforward:}
+        \begin{flalign*}
+            \onslide<3->{& \k{z}{k} = \k{W}{k} \k{a}{k-1} + \k{b}{k} &&\\ }
+            \onslide<4->{& \k{a}{k} = \k{g}{k}(\k{z}{k}) &&}
+        \end{flalign*}
+    \vspace{0.5cm}\\
+    \onslide<5->{Backpropagation:\\}
+    \onslide<10->{(let $\br{\frac{\partial u}{\partial v}}_{ij} = \frac{\partial u_j}{\partial v_i}$)    }
+    \end{minipage}
+    \begin{minipage}{0.57\textwidth}
+        \begin{figure}
+            \includegraphics[width=0.9 \linewidth, right]{img/dropout/backprop_mlp.pdf}
+            \onslide<12->{\caption{Visualization of a MLP \cite{dropout}\textsuperscript{*}}}
+        \end{figure}
+    \end{minipage}
+    \vspace{-0.3cm}
+    \begin{flalign*}
+        \onslide<6->{& \frac{\partial L}{\partial \k{z}{k}} = \frac{\partial \k{z}{k+1}}{\partial \k{z}{k}}\frac{\partial L}{\partial \k{z}{k+1}}} \onslide<7->{=  \frac{\partial \k{g}{k}(\k{z}{k})}{\partial\k{z}{k}} {\k{W}{k+1}}^T \frac{\partial L}{\partial \k{z}{k+1}} &&\\}
+        \onslide<8->{& \frac{\partial L}{\partial \k{W}{k}_{ij}} = \frac{\partial L}{\partial \k{z}{k}_i} \k{a}{k-1}_j,} \onslide<9->{\quad \frac{\partial L}{\partial \k{b}{k}_i}
+        = \frac{\partial L}{\partial \k{z}{k}_i} &&}
+    \end{flalign*}
+    \onslide<11->{\arrow During feedforward    store the $\k{z}{k}, \k{a}{k}$, during backprop $\frac{\partial L}{\partial \k{z}{k}}$}
+\end{frame}
+
+% \begin{frame}
+%     \frametitle{Regularization Techniques}
+    
+%     \begin{itemize}
+%         \onslide<2->{\item Parameter norm constraints (e.g. $\Omega(\theta) = \norm{\theta}_2$):\\}
+%         \vspace{0.15cm}
+%         \onslide<3->{implicit: minimize $\tilde{J}(\theta) = J(\theta) + \alpha \Omega(\theta), \quad \alpha \geq 0$ \\}
+%         \vspace{0.15cm}
+%         \onslide<4->{explicit: project $\theta$ back after gradient step, s.t. $\Omega(\theta) < c$}
+%         \onslide<6->{\item Dataset augmentation: generate new examples by transforming existing ones}
+%         \onslide<8->{\item Early stopping: stop training as soon as generalization error starts increasing again }
+%     \end{itemize}
+%     \begin{figure}
+%         \hspace{-2em}
+%         \onslide<5->{$\vcenter{\hbox{\includegraphics[width=0.24\textwidth]{img/deep learning/norm_constraint.pdf}}}$}
+%         \onslide<7->{$\vcenter{\hbox{\includegraphics[width=0.24\textwidth]{img/deep learning/dataset_augmentation.pdf}}}$}
+%         \onslide<9->{$\vcenter{\hbox{\includegraphics[width=0.55\textwidth]{img/deep learning/early_stopping.pdf}}}$}
+%         \hspace{-2em}
+%         \onslide<10->{\caption{Illustration of parameter norm constraints, dataset augmentation and early stopping \cite{textbook}\textsuperscript{*}}}
+%     \end{figure}
+% \end{frame}
+
+\begin{frame}
+    \frametitle{Regularization: Dropout}
+    Train ensemble of all subnetworks of base network:
+    \begin{itemize}
+        \onslide<2->{\item Randomly remove non-output nodes for each training example}
+        \onslide<4->{\item MLP: $\k{a}{k}_n = \k{\mu}{k}_n \k{g}{k}(\k{z}{k})_n\,, \ \k{\mu}{k}_n$ Bernoulli-distributed}
+        \onslide<5->{\item For non-training inputs return average of ensemble results or
+        equivalently scale outgoing weights by $p(\k{\mu}{k}_n = 1)$}
+    \end{itemize}
+    \vspace{-0.5cm}
+    \begin{minipage}{0.49\textwidth}
+        \vspace{0.3cm}
+        \onslide<6->{Why does it work:}
+        \begin{itemize}
+            \onslide<7->{\item Regularizes nodes to work well in different contexts}
+            \onslide<8->{\item Form of dataset augmentation
+            \arrow create new inputs by injecting noise}
+        \end{itemize}
+    \end{minipage}
+    \hspace{1em}
+    \begin{minipage}{0.4\textwidth}
+        \vspace{1cm}
+        \begin{figure}
+            \onslide<3->{\includegraphics[width=0.8\linewidth]{img/dropout/dropout.pdf}}
+            
+            \onslide<9->{\caption{Subnetwork formed by randomly sampling $\mu$ \cite{dropout}\textsuperscript{*}}}
+        \end{figure}
+    \end{minipage}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Convolutional Neural Networks (CNNs)}
+    Specialized neural networks for inputs with grid-like topology
+    
+    \begin{minipage}[t]{0.49\textwidth}
+        \vspace{1em}
+        \onslide<2->{Define convolution operation for CNNs with 2D-inputs as:
+        \begin{equation*}
+            F(i,j) = \sum_{m, n} I(i+m, j+n)K(m,n)
+        \end{equation*}}
+        
+        \onslide<4->{Idea: move the kernel $K$ accross the input $I$ like a window into the array}
+    \end{minipage}
+    \begin{minipage}[t]{0.49\textwidth}
+        \begin{figure}
+            \onslide<3->{\includegraphics[width=\linewidth]{img/deep learning/2d_conv.pdf}}
+            \hspace{-4.5em}
+            \captionsetup{margin={1cm,-0.5cm}}
+            \onslide<5->{\caption{Visualization of convolution with a $2\PLH2$ kernel \cite{textbook}}}
+        \end{figure}
+    \end{minipage}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Architecture of a Convolutional Layer}
+    {\setlength{\leftmargini}{0cm}
+    \begin{enumerate}
+        \onslide<2->{\item Compute multiple feature maps $F$ in parallel using different kernels}
+        \onslide<4->{\item Apply element-wise activation to the $\k{F}{k}_{ij}$}
+        \onslide<5->{\item Summarize the activations using a pooling function}
+    \end{enumerate}}
+    
+    \vspace{2em}
+    \begin{minipage}[b]{0.52\textwidth}
+        \begin{figure}
+            \onslide<3->{\includegraphics[width=0.9\linewidth]{img/conv_layer.png}}
+            \onslide<7->{\caption{Composition of a convolutional layer \cite{conv_layer}}}
+        \end{figure}
+    \end{minipage}
+    \begin{minipage}[b]{0.45\textwidth}
+        \begin{figure}
+            \onslide<6->{\includegraphics[width=0.8\linewidth]{img/deep learning/pooling.pdf}}
+            \onslide<7->{\caption{Max-pooling returns maximum activation in area \cite{textbook}}}
+        \end{figure}
+    \end{minipage}
+\end{frame}
+
+\begin{frame}
+    \frametitle{The Reasoning behind CNNs}
+    \hspace{-1em}
+    \begin{minipage}{0.6\textwidth}
+        Practical advantages over MLPs:
+        \begin{itemize}
+            \onslide<2->{\item Sparse connectivity: not all input and output nodes are connected}
+            \onslide<4->{\item Parameter sharing: kernel parameters reused for each node in a feature map}
+            \onslide<5->{\item Downsampling: fixed-size outputs by adapting stride to input size}
+        \end{itemize}
+    \end{minipage}
+    \hspace{0.5em}
+    \begin{minipage}{0.35\textwidth}
+        \vspace{-3em}
+        \begin{figure}
+            \onslide<3->{\includegraphics[width=0.4\linewidth]{img/deep learning/sparse connectivity_1.pdf}
+            \includegraphics[width=0.4\linewidth]{img/deep learning/sparse connectivity_2.pdf}}
+            \hspace{-3em}
+            \captionsetup{margin={2em,-5em}}
+            \onslide<8->{\caption{Connectivity comparison: convolutional layer with $3\PLH1$ kernel vs. fully connected \cite{textbook}}}
+        \end{figure}
+    \end{minipage}
+
+    \onslide<7->{\arrow Decreased computational cost, increased input-flexibility\\
+    \vspace{2em}}
+    
+    \begin{minipage}[b]{0.5\textwidth}
+        \begin{figure}
+            \onslide<8->{\caption{Max-pooling with stride 2 \cite{textbook}}}
+        \end{figure}
+    \end{minipage}
+    \begin{minipage}[b]{0.45\textwidth}
+        \begin{figure}
+            \onslide<6->{\includegraphics[width=\linewidth]{img/deep learning/downsampling.pdf}}
+            \hspace{-3em}
+        \end{figure}
+    \end{minipage}
+    
+\end{frame}
+
+\begin{frame}
+    \frametitle{The Reasoning behind CNNs}
+    \hspace{-1.5em}
+    \begin{minipage}{0.7\textwidth}
+        Problem-specific arguments:
+        {%
+        \setlength{\leftmarginii}{1em}
+        \begin{itemize}
+            \onslide<2->{\item Feature-extraction often only needs local information}
+            \onslide<4->{\item Introduction of invariances by pooling and parameter sharing}
+            \onslide<6->{\item Biological analogy: visual cortex}
+            \begin{itemize}
+                \onslide<7->{\item Two-dimensional structure, mirroring image}
+                \onslide<8->{\item Cell activity influenced only by localized receptive field}
+                \onslide<9->{\item Deeper brain layers extract increasingly complex features using the same structure}
+            \end{itemize}
+        \end{itemize}}
+    \end{minipage}
+    \hspace{1em}
+    \begin{minipage}{0.2\textwidth}
+        \vspace{-2em}
+        \begin{figure}
+            \onslide<5->{\includegraphics[width=1.5\linewidth]{img/deep learning/pooling_invariance.pdf}}
+            \hspace{-10em}
+            \captionsetup{margin={1em,-5em}}
+            \vspace{-1em}
+            \onslide<10->{\caption{Invariance by pooling feature maps responding to different orientations \cite{textbook}}}
+        \end{figure}
+    \end{minipage}
+    \onslide<3->{\begin{minipage}[b]{0.49\textwidth}
+        \begin{figure}
+            \caption{Edge detection only needs local information ($K = \brr{- 1, 1}$) \cite{textbook}}
+        \end{figure}
+    \end{minipage}
+    \begin{minipage}[b]{0.49\textwidth}
+        \includegraphics[width=0.9\linewidth]{img/deep learning/edge_detection.pdf}
+    \end{minipage}}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Training a MLP to Classify Digits with the MNIST Dataset}
+    
+    \begin{minipage}{0.82\textwidth}
+        Model Architecture:
+        \begin{itemize}
+            \onslide<2->{\item Input layer: width 784 \arrow images are $28\PLH28$px}
+            \onslide<4->{\item 4 hidden layers, each width 100, with ReLU activation}
+            \onslide<5->{\item Output layer: multinomial logistic regression, width 10 for digits 0-9}
+        \end{itemize}
+        \onslide<6->{\arrow $N=5$ non-input layers\\}
+    \end{minipage}
+    \begin{minipage}{0.15\textwidth}
+        \begin{figure}
+            \onslide<3->{\includegraphics[width=1.3\linewidth]{img/nist_sample.png}}
+            \captionsetup{margin={0em,-2em}}
+            \onslide<10->{\caption{Sample from the MNIST-Dataset}}
+        \end{figure}
+    \end{minipage}
+    
+    \vspace{0.3em}
+    
+    \onslide<7->{Multinomial logistic regression:\\}
+    \onslide<8->{Affine transformation returns parameters $z_i$ for logistic model:}
+    \begin{flalign*}
+        \onslide<8->{z :=& \k{z}{N} = \k{W}{N} \phi(x; \theta) + \k{b}{N}} \\
+        \onslide<9->{p\c{c=i}{x} =& \frac{\exp(z_i)}{\sum_{j}\exp(z_j)} =: \text{softmax}(z)_i}
+    \end{flalign*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Training a MLP to Classify Digits with the MNIST Dataset}
+    MLE cost function:
+    \begin{flalign*}
+        \onslide<2->{L(x, y; \theta) &= -\log{\p{model}\c{y}{x; \theta}}} \onslide<3->{= -\log*{\text{softmax}(z(x))_y} \\}
+        \onslide<4->{J(\theta) &= \frac{1}{m} \sum_{k=1}^{m} L(x_k, y_k; \theta)}
+    \end{flalign*}
+
+    \onslide<5->{Optimization and Regularization:}
+    \begin{itemize}
+        \onslide<6->{\item SGD using batchsize 20 with Adam optimizer}
+        \onslide<7->{\item Early Stopping}
+        \onslide<8->{\item Dropout with $\p{hidden}=0.7$ and $\p{input}=0.8$ for keeping input and hidden nodes}
+    \end{itemize}
+    \onslide<9->{\arrow Best result: $\approx$ 90\% accuracy on validation set}
+
+    \vspace{1em}
+    Code:
+    \begin{itemize}
+        \item \url{https://github.com/coolusername891/deep-learning-comphy-ws2425}
+        \item Used libraries: only numpy (and matplotlib for visualization)
+    \end{itemize}   
+    
+\end{frame}
+
+\begin{frame}[allowframebreaks]
+    \nocite{*}
+    \frametitle{Image Sources}
+    Note: asterisk next to citation e.g. \cite{textbook}\textsuperscript{*} $:\iff$ image was annotated
+    \printbibliography[notkeyword={info},title={Image Sources}]
+\end{frame}
+
+\begin{frame}[allowframebreaks]
+    \frametitle{References}
+    \printbibliography[notkeyword={img},title={References}]
+\end{frame}
+    
+\end{document}
